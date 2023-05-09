@@ -64,7 +64,7 @@ function StockDirecoryReload {
     }
 }
 
-$ID = (Start-Process python -ArgumentList $Name -PassThru).Id
+$ID = (Start-Process python -ArgumentList $PytonScriptPath -PassThru).Id
 
 while ($true) {
     
