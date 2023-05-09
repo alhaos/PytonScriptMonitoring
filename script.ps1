@@ -4,8 +4,7 @@
 .LINK
     https://github.com/alhaos/PytonScriptMonitoring
 .EXAMPLE
-    script.ps1 -Delay 20 -Logfile c:\tmp\example.log -PytonScriptPath c:\tmp\example.py
-    
+    script.ps1 -Delay 20 -Logfile c:\tmp\example.log -PytonScriptPath c:\tmp\example.py -StockDirecory c:\tmp\StockDirecory
 #>
 
 [CmdletBinding()]
@@ -20,11 +19,16 @@ param (
 
     [Parameter(Mandatory)]
     [string]
-    $PytonScriptPath
+    $PytonScriptPath,
+
+    [Parameter(Mandatory)]
+    [string]
+    $StockDirecory
 )
 
 class TargetLine {
     [datetime]$Dt
+    [string]$PrvMessage
     [string]$Message
 }
 
@@ -36,10 +40,12 @@ function Get-LastLineWithTime {
         [string]$LogFileName
     )
  
+    $prvLine = (Get-Content $LogFileName -Tail 10)[-2]
     $line = (Get-Content $LogFileName -Tail 10)[-1]
    
     return [TargetLine]@{
         Dt      = [datetime]::ParseExact($line.Substring(1, 19), 'yyyy-MM-dd hh:mm:ss', $null)
+        PrvMessage = $prvLine.Substring(22)
         Message = $line.Substring(22)
     }
 }
@@ -50,6 +56,13 @@ function Restart-Prcess {
     $id = (Start-Process python -ArgumentList $PytonScriptPath -PassThru).Id
 }
 
+function StockDirecoryReload {
+    $StockDataDirecory = Join-Path $StockDirecory -ChildPath "data"
+    Get-ChildItem $StockDataDirecory -File | Remove-Item -Confirm:$false
+    Get-ChildItem $StockDirecory -Filter "*.zip" | ForEach-Object {
+        Expand-Archive $_ $StockDataDirecory
+    }
+}
 
 $ID = (Start-Process python -ArgumentList $Name -PassThru).Id
 
@@ -77,8 +90,10 @@ while ($true) {
             continue
         }
         "New link from NONE. Waiting..." {
-            Restart-Prcess
-            continue
+            if ($targetLine.PrvMessage -match "Загрузка файла на сервер..." -or $targetLine.PrvMessage -match "DOWNLOAD.*"){
+                Restart-Prcess
+                continue
+            }
         }
     }
 }
